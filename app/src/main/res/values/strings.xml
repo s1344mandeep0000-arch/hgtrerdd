@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Minecraft AI Mod Maker Studio</string>
+    <string name="studio_full_title">Minecraft AI Mod Maker Studio</string>
+    <string name="auth_subtitle">Dual-Engine AI Studio for Minecraft Java Mods &amp; Bedrock Add-ons (2009–Nov 2026)</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="hero_banner_desc">CraftForge dual-engine dark obsidian workbench artwork</string>
+    <string name="empty_workbench_desc">CraftForge empty project workbench illustration</string>
+    <string name="java_edition_label">Java Edition</string>
+    <string name="bedrock_edition_label">Bedrock Edition</string>
+    <string name="generate_mod_action">Generate with AI</string>
+    <string name="load_template_action">Load Starter Template</string>
+    <string name="generate_texture_action">AI Pixel Texture</string>
+    <string name="fix_with_ai_action">Fix with AI</string>
+    <string name="validate_export_action">Validate &amp; Export</string>
+    <string name="save_cloud_action">Save to Cloud</string>
+</resources>

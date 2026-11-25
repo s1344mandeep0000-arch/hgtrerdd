@@ -1,0 +1,6 @@
+{
+  "name": "Minecraft AI Mod Maker Studio",
+  "description": "Dual-engine AI studio for Minecraft Java Edition mods and Bedrock Edition add-ons across 2009–2026 versions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

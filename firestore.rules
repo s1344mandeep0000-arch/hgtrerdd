@@ -1,0 +1,190 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidEdition(edition) {
+      return edition in ['JAVA', 'BEDROCK'];
+    }
+
+    function isValidStatus(status) {
+      return status in ['COMPATIBLE', 'PARTIALLY_COMPATIBLE', 'REQUIRES_MODIFICATION', 'NOT_SUPPORTED'];
+    }
+
+    function isValidProject(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.modId is string && data.modId.size() >= 1 && data.modId.size() <= 64 &&
+             data.edition is string && isValidEdition(data.edition) &&
+             data.targetVersionId is string && data.targetVersionId.size() >= 1 && data.targetVersionId.size() <= 64 &&
+             data.targetVersionNumber is string && data.targetVersionNumber.size() >= 1 && data.targetVersionNumber.size() <= 40 &&
+             data.selectedLoader is string && data.selectedLoader.size() >= 1 && data.selectedLoader.size() <= 64 &&
+             data.featureCategory is string && data.featureCategory.size() >= 1 && data.featureCategory.size() <= 64 &&
+             data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 4000 &&
+             data.adaptationNotes is string && data.adaptationNotes.size() <= 4000 &&
+             data.validationStatus is string && isValidStatus(data.validationStatus) &&
+             data.validationSummary is string && data.validationSummary.size() <= 1000 &&
+             data.fileCount is int && data.fileCount >= 0 && data.fileCount <= 100 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidProjectFile(data, userId, projectId) {
+      return data.userId is string && data.userId == userId &&
+             data.projectId is string && data.projectId == projectId &&
+             data.path is string && data.path.size() >= 1 && data.path.size() <= 256 &&
+             data.content is string && data.content.size() <= 250000 &&
+             data.fileType is string && data.fileType.size() >= 1 && data.fileType.size() <= 32 &&
+             data.binaryAsset is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidVersionUpdate(data, userId, versionId) {
+      return data.userId is string && data.userId == userId &&
+             data.versionId is string && data.versionId == versionId &&
+             data.edition is string && isValidEdition(data.edition) &&
+             data.versionNumber is string && data.versionNumber.size() >= 1 && data.versionNumber.size() <= 32 &&
+             data.updateName is string && data.updateName.size() <= 120 &&
+             data.releaseDate is string && data.releaseDate.size() >= 1 && data.releaseDate.size() <= 32 &&
+             data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 100000000 &&
+             data.historicalCategory is string && data.historicalCategory.size() >= 1 && data.historicalCategory.size() <= 64 &&
+             data.releaseType is string && data.releaseType.size() >= 1 && data.releaseType.size() <= 32 &&
+             data.compatibilityStatus is string && isValidStatus(data.compatibilityStatus) &&
+             data.supportedCapabilities is string && data.supportedCapabilities.size() <= 2000 &&
+             data.compatibleLoaders is string && data.compatibleLoaders.size() <= 500 &&
+             data.supportedFileFormats is string && data.supportedFileFormats.size() <= 500 &&
+             data.requiredRuntime is string && data.requiredRuntime.size() <= 160 &&
+             data.adaptationNotes is string && data.adaptationNotes.size() <= 1500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId}/projects/{projectId} {
+      allow list: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isSignedIn() && request.auth.uid == userId && isValidId(projectId);
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(projectId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'title', 'modId', 'edition', 'targetVersionId',
+                         'targetVersionNumber', 'selectedLoader', 'featureCategory',
+                         'prompt', 'adaptationNotes', 'validationStatus',
+                         'validationSummary', 'fileCount', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'title', 'modId', 'edition', 'targetVersionId',
+                         'targetVersionNumber', 'selectedLoader', 'featureCategory',
+                         'prompt', 'adaptationNotes', 'validationStatus',
+                         'validationSummary', 'fileCount', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidProject(incoming(), userId);
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(projectId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().edition == existing().edition &&
+                       isValidProject(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'adaptationNotes', 'validationStatus',
+                         'validationSummary', 'fileCount', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(projectId);
+
+      match /files/{fileId} {
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow get: if isSignedIn() && request.auth.uid == userId && isValidId(projectId) && isValidId(fileId);
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(projectId) &&
+                         isValidId(fileId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'projectId', 'path', 'content',
+                           'fileType', 'binaryAsset', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'projectId', 'path', 'content',
+                           'fileType', 'binaryAsset', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidProjectFile(incoming(), userId, projectId) &&
+                         exists(/databases/$(database)/documents/users/$(userId)/projects/$(projectId));
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(projectId) &&
+                         isValidId(fileId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().projectId == existing().projectId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidProjectFile(incoming(), userId, projectId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'path', 'content', 'fileType', 'binaryAsset', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(projectId) && isValidId(fileId);
+      }
+    }
+
+    match /users/{userId}/version_updates/{versionId} {
+      allow list: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isSignedIn() && request.auth.uid == userId && isValidId(versionId);
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(versionId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'versionId', 'edition', 'versionNumber', 'updateName',
+                         'releaseDate', 'sortOrder', 'historicalCategory', 'releaseType',
+                         'compatibilityStatus', 'supportedCapabilities', 'compatibleLoaders',
+                         'supportedFileFormats', 'requiredRuntime', 'adaptationNotes',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'versionId', 'edition', 'versionNumber', 'updateName',
+                         'releaseDate', 'sortOrder', 'historicalCategory', 'releaseType',
+                         'compatibilityStatus', 'supportedCapabilities', 'compatibleLoaders',
+                         'supportedFileFormats', 'requiredRuntime', 'adaptationNotes',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidVersionUpdate(incoming(), userId, versionId);
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(versionId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().versionId == existing().versionId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidVersionUpdate(incoming(), userId, versionId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'updateName', 'compatibilityStatus', 'supportedCapabilities',
+                         'compatibleLoaders', 'supportedFileFormats', 'requiredRuntime',
+                         'adaptationNotes', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(versionId);
+    }
+  }
+}
